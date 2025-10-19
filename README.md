@@ -1,74 +1,145 @@
-# Bert-sentiment-finetuning-
-Bert fine tuning 
-Generating train split: 
- 2531/0 [00:00<00:00, 90967.22 examples/s]
-Generating validation split: 
- 316/0 [00:00<00:00, 26764.40 examples/s]
-Generating test split: 
- 317/0 [00:00<00:00, 20645.55 examples/s]
-/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_auth.py:94: UserWarning: 
-The secret `HF_TOKEN` does not exist in your Colab secrets.
-To authenticate with the Hugging Face Hub, create a token in your settings tab (https://huggingface.co/settings/tokens), set it as secret in your Google Colab and restart your session.
-You will be able to reuse this secret in all of your notebooks.
-Please note that authentication is recommended but still optional to access public models or datasets.
-  warnings.warn(
-tokenizer_config.json: 100%
- 48.0/48.0 [00:00<00:00, 6.31kB/s]
-config.json: 100%
- 570/570 [00:00<00:00, 80.9kB/s]
-vocab.txt: 100%
- 232k/232k [00:00<00:00, 539kB/s]
-tokenizer.json: 100%
- 466k/466k [00:00<00:00, 31.8MB/s]
-Map: 100%
- 2531/2531 [00:00<00:00, 7518.22 examples/s]
-Map: 100%
- 316/316 [00:00<00:00, 5580.16 examples/s]
-Map: 100%
- 317/317 [00:00<00:00, 6202.62 examples/s]
-model.safetensors: 100%
- 440M/440M [00:01<00:00, 302MB/s]
-Some weights of BertForSequenceClassification were not initialized from the model checkpoint at bert-base-uncased and are newly initialized: ['classifier.bias', 'classifier.weight']
-You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
-Downloading builder script: 
- 4.20k/? [00:00<00:00, 433kB/s]
-Downloading builder script: 
- 9.54k/? [00:00<00:00, 1.08MB/s]
-/tmp/ipython-input-4155543890.py:69: FutureWarning: `tokenizer` is deprecated and will be removed in version 5.0.0 for `Trainer.__init__`. Use `processing_class` instead.
-  trainer = Trainer(
- [1585/1585 01:25, Epoch 5/5]
-Step	Training Loss
-50	0.309800
-100	0.258000
-150	0.282700
-200	0.216500
-250	0.263100
-300	0.214800
-350	0.321700
-400	0.221000
-450	0.228800
-500	0.238400
-550	0.214400
-600	0.260300
-650	0.269100
-700	0.193000
-750	0.286300
-800	0.138800
-850	0.303400
-900	0.265900
-950	0.232800
-1000	0.259400
-1050	0.244400
-1100	0.251100
-1150	0.288000
-1200	0.205000
-1250	0.214100
-1300	0.238200
-1350	0.219800
-1400	0.213800
-1450	0.191700
-1500	0.283900
-1550	0.301400
- [40/40 00:01]
-Validation: {'eval_loss': 0.22835670411586761, 'eval_accuracy': 0.9430379746835443, 'eval_roc_auc': 0.5476323639075318, 'eval_runtime': 0.7574, 'eval_samples_per_second': 417.201, 'eval_steps_per_second': 52.81, 'epoch': 5.0}
-Test: {'eval_loss': 0.2386857271194458, 'eval_accuracy': 0.9400630914826499, 'eval_roc_auc': 0.5802719886965737, 'eval_runtime': 0.7441, 'eval_samples_per_second': 426.0, 'eval_steps_per_second': 53.754, 'epoch': 5.0}
+🧠 BERT Sentiment Classifier – Fine-Tuning
+
+Fine-tuning BERT (bert-base-uncased) for binary sentiment analysis using Hugging Face’s transformers and datasets libraries.
+
+🚀 Project Overview
+
+This notebook demonstrates how to fine-tune a pre-trained BERT model on a binary sentiment dataset (e.g., positive vs. negative reviews).
+The workflow includes:
+
+Dataset loading and train/validation/test split
+
+Tokenization and preprocessing
+
+Model fine-tuning using Trainer API
+
+Evaluation on validation and test sets
+
+🧩 Requirements
+
+Install the necessary dependencies before running the notebook:
+
+pip install torch transformers datasets evaluate scikit-learn
+
+📂 Dataset Preparation
+
+Use your dataset (e.g., capterra_reviews_binary.csv) with a text and label column.
+Example split code:
+
+from sklearn.model_selection import train_test_split
+import pandas as pd
+
+df = pd.read_csv('capterra_reviews_binary.csv')
+train, temp = train_test_split(df, test_size=0.2, stratify=df['label'], random_state=42)
+val, test = train_test_split(temp, test_size=0.5, stratify=temp['label'], random_state=42)
+
+train.to_csv('train.csv', index=False)
+val.to_csv('val.csv', index=False)
+test.to_csv('test.csv', index=False)
+
+⚙️ Fine-Tuning Steps
+
+Load tokenizer and model
+
+from transformers import BertTokenizer, BertForSequenceClassification
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
+
+
+Tokenize the dataset
+
+from datasets import load_dataset
+dataset = load_dataset('csv', data_files={'train': 'train.csv', 'validation': 'val.csv', 'test': 'test.csv'})
+def tokenize_fn(batch):
+    return tokenizer(batch['text'], padding='max_length', truncation=True)
+tokenized_datasets = dataset.map(tokenize_fn, batched=True)
+
+
+Train the model
+
+from transformers import Trainer, TrainingArguments
+training_args = TrainingArguments(
+    output_dir='./results',
+    evaluation_strategy='epoch',
+    num_train_epochs=5,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
+    learning_rate=2e-5,
+    weight_decay=0.01,
+    logging_steps=50
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_datasets['train'],
+    eval_dataset=tokenized_datasets['validation'],
+    tokenizer=tokenizer
+)
+
+trainer.train()
+
+📊 Results
+
+After training for 5 epochs, the model achieved:
+
+Split	Accuracy	Loss	ROC-AUC
+Validation	94.3%	0.228	0.548
+Test	94.0%	0.239	0.580
+
+(Metrics computed using the Hugging Face evaluate library.)
+
+🧪 Evaluation
+
+Run the evaluation step after training:
+
+trainer.evaluate(tokenized_datasets['test'])
+
+
+Expected output:
+
+{'eval_loss': 0.2386,
+ 'eval_accuracy': 0.9400,
+ 'eval_roc_auc': 0.5802,
+ 'epoch': 5.0}
+
+💾 Saving and Loading the Model
+trainer.save_model('./bert-sentiment-finetuned')
+tokenizer.save_pretrained('./bert-sentiment-finetuned')
+
+
+Load later for inference:
+
+from transformers import pipeline
+sentiment = pipeline('text-classification', model='./bert-sentiment-finetuned')
+sentiment("This app is fantastic!")
+
+🧠 Key Learnings
+
+Fine-tuning BERT yields high accuracy even on small datasets.
+
+ROC-AUC may vary depending on dataset balance and label quality.
+
+You can improve performance by:
+
+Increasing dataset size
+
+Using class weighting
+
+Applying data augmentation (e.g., back-translation)
+
+Fine-tuning more epochs with smaller learning rate
+
+📈 Example Output
+Epoch 5/5 complete.
+Validation accuracy: 94.3%
+Test accuracy: 94.0%
+Model ready for inference!
+
+🏁 Credits
+
+Pretrained model: BERT-base-uncased
+
+Libraries: transformers, datasets, evaluate, scikit-learn, torch
+
+Author: Vishnu Sunil (thelightweilder)
